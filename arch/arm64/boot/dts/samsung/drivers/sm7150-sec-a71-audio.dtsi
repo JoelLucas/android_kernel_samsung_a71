@@ -105,12 +105,8 @@
 		ti,reset-gpio = <&tlmm 8 0>;
 		ti,irq-gpio = <&tlmm 89 0>;
 		ti,port_id = <0x1002>;
-		ti,re_min = <2621440>;
-		ti,re_max = <5242880>;
-		ti,f0_min = <419430400>;
-		ti,f0_max = <629145600>;
-		ti,q_min = <524288>;
-		ti,q_max = <1572864>;
+		ti,iv-width = <12>;
+		ti,vbat-mon = <1>;
 		status = "ok";
 
 		pinctrl-names = "default";

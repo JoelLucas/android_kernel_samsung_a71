@@ -24,7 +24,7 @@
 
 &reserved_memory {
 	camera_mem: camera_mem_region {
-		reg = <0x0 0xC2000000 0x0 0x14000000>;
+		reg = <0x0 0xC2000000 0x0 0x25800000>;
 		ion,recyclable;
 	};
 };

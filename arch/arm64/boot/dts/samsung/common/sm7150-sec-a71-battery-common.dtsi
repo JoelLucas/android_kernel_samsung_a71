@@ -90,14 +90,14 @@
 		battery,ovp_uvlo_check_type = <3>; /* SEC_BATTERY_OVP_UVLO_CHGPOLLING */
 
 		battery,temp_check_count = <1>;
-		battery,temp_highlimit_threshold_event = <800>;
-		battery,temp_highlimit_recovery_event = <750>;
+		battery,temp_highlimit_threshold_event = <700>;
+		battery,temp_highlimit_recovery_event = <680>;
 		battery,temp_high_threshold_event = <500>;
 		battery,temp_high_recovery_event = <480>;
 		battery,temp_low_threshold_event = <0>;
 		battery,temp_low_recovery_event = <20>;
-		battery,temp_highlimit_threshold_normal = <800>;
-		battery,temp_highlimit_recovery_normal = <750>;
+		battery,temp_highlimit_threshold_normal = <700>;
+		battery,temp_highlimit_recovery_normal = <680>;
 		battery,temp_high_threshold_normal = <500>;
 		battery,temp_high_recovery_normal = <480>;
 		battery,temp_low_threshold_normal = <0>;
@@ -308,6 +308,10 @@
 			pinctrl-names = "fled_default", "fled_suspend";
 			pinctrl-0 = <&cam_flash_active &cam_torch_active>;
 			pinctrl-1 = <&cam_flash_suspend &cam_torch_suspend>;
+			flash_current = <1400>;
+			preflash_current = <200>;
+			torch_current = <300>;
+			movie_current = <200>;
 			factory_current = <300>;
 			flashlight_current = <25 75 100 150 200>;
 			status = "okay";
