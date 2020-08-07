@@ -1,0 +1,73 @@
+&soc {
+	battery {
+        battery,batt_data_version = <3>;
+        battery,chip_vendor = "LSI";
+		battery,dchg_thermal_source = <0>; /* SEC_CHARGER_THERMAL_SOURCE_FG */
+        battery,fuelgauge_name = "s2mu107-fuelgauge";
+        battery,fgsrc_switch_name = "s2mu107-fuelgauge"; /* Fuelgauge voltage source */
+        
+        io-channels = <&pm6150_vadc ADC_BAT_THERM_PU2>;
+    };
+    sec-direct-charger {
+	    charger,main_charger = "s2mu107-switching-charger";
+		charger,direct_charger = "s2mu107-direct-charger";            
+    };
+    
+    s2mu107-charger {
+		status = "disable";
+		compatible = "samsung,s2mu107-switching-charger";
+	};
+
+	s2mu107-direct-charger {
+		status = "enable";
+		dc,direct_charger_name = "s2mu107-direct-charger";
+		
+		dc,step_charge_level = <3>;
+		dc,dc_step_voltage_45w = <4090 4190 4350>;
+		dc,dc_step_current_45w = <4600 3900 3100>;
+		dc,dc_step_voltage_25w = <4090 4190 4350>;
+		dc,dc_step_current_25w = <4600 3900 3100>;
+		dc,dc_c_rate = <20 14 9>;
+	};
+
+	12c@13 {
+		s2mu107-fuelgauge@3B{
+			compatible = "samsung,s2mu107-fuelgauge";
+			reg = <0x3B>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&fuel_irq>;
+			fuelgauge,charger_name = "s2mu107-switching-charger";
+			fuelgauge,fuel_int = <&tlmm 104 0>;
+			fuelgauge,fuel_alert_soc = <1>;
+			fuelgauge,fuel_alert_vol = <3300>;
+			fuelgauge,low_temp_limit = <100>;
+			fuelgauge,sw_vbat_l_recovery_vol = <3465>;
+			fuelgauge,capacity_max = <990>;
+			fuelgauge,capacity_max_margin = <200>;
+			fuelgauge,capacity_min = <0>;
+			fuelgauge,capacity_calculation_type = <28>;
+			fuelgauge,capacity_full = <3000>;
+			fuelgauge,type_str = "SDI";
+			fuelgauge,fg_log_enable = <1>;
+			fuelgauge,low_vbat_threshold_lowtemp = <3000>;
+		};
+
+		flash_led {
+			reg = <0x74>;
+			compatible = "qcom,s2mu107-fled";
+			enable = <1 1>;
+			flash-gpio = <&tlmm 22 0>;
+			torch-gpio = <&tlmm 24 0>;
+			pinctrl-names = "fled_default", "fled_suspend";
+			pinctrl-0 = <&cam_flash_active &cam_torch_active>;
+			pinctrl-1 = <&cam_flash_suspend &cam_torch_suspend>;
+			flash_current = <1400>;
+			preflash_current = <200>;
+			torch_current = <300>;
+			movie_current = <200>;
+			factory_current = <300>;
+			flashlight_current = <25 75 100 150 200>;
+			status = "okay";
+		};
+    };
+};

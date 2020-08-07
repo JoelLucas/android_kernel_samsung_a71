@@ -1,0 +1,35 @@
+&soc {
+	s2mu107_flash0: qcom,flash_0 {
+		label = "flash";
+		qcom,led-name = "led:flash_0";
+		qcom,max-current = <1500>;
+		qcom,default-led-trigger = "flash0_trigger";
+		qcom,id = <0>;
+		qcom,current-ma = <1400>;
+		qcom,duration-ms = <1280>;
+		qcom,ires-ua = <12500>;
+		qcom,hdrm-voltage-mv = <325>;
+		qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		qcom,record-current-ma = <200>;
+	};
+
+	s2mu107_torch0: qcom,torch_0 {
+		label = "torch";
+		qcom,led-name = "led:torch_0";
+		qcom,max-current = <500>;
+		qcom,default-led-trigger = "torch0_trigger";
+		qcom,id = <0>;
+		qcom,current-ma = <300>;
+		qcom,ires-ua = <12500>;
+		qcom,hdrm-voltage-mv = <325>;
+		qcom,hdrm-vol-hi-lo-win-mv = <100>;
+	};
+
+    led_flash0: qcom,camera-flash@0 {
+          cell-index = <0>;
+          compatible = "qcom,camera-flash";
+          flash-source = <&s2mu107_flash0>;
+          torch-source = <&s2mu107_torch0>;
+          status = "ok";
+    };
+};

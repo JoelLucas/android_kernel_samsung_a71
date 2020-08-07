@@ -1,0 +1,27 @@
+#include "sm7150-pinctrl.dtsi"
+/* r00 --r05 */
+#include "../common/sm7150-sec-a71-pm-common.dtsi"
+#include "../common/sm7150-sec-a71-battery-common.dtsi"
+#include "../drivers/sm7150-sec-a71-eif-common.dtsi"
+#include "../drivers/sm7150-sec-a71-fingerprint_00.dtsi"
+#include "../drivers/sm7150-sec-a71-nfc-r00.dtsi"
+#include "../drivers/sm7150-camera-sensor-a71-r00.dtsi"
+/* r06 */
+#include "../common/sm7150-sec-a71-common.dtsi"
+// #include "sm6150-sec-a70q-input-common.dtsi"
+#include "../common/sm7150-sec-a71-pm-common.dtsi"
+#include "../common/sm7150-sec-a71-battery-common.dtsi"
+#include "../drivers/sm7150-sec-a71-eif-common.dtsi"
+#include "../drivers/sm7150-sec-a71-fingerprint_00.dtsi"
+#include "../drivers/sm7150-sec-a71-nfc-r00.dtsi"
+#include "../drivers/sm7150-camera-sensor-a71-r01.dtsi"
+//#include "../drivers/sm7150-sec-a71-display-r00.dtsi"
+// TODO: Unified display
+
+/* r00 -- r06 */
+
+&pm6150l_vadc {
+	sdm_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
+	};
+};

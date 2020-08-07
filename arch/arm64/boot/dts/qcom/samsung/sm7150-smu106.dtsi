@@ -1,0 +1,121 @@
+/* r06 */
+&soc {
+	battery {
+		battery,dchg_thermal_source = <3>; /* SEC_BATTERY_THERMAL_SOURCE_CHG_ADC */
+		battery,fuelgauge_name = "s2mu106-fuelgauge";
+		battery,fgsrc_switch_name = "s2mu106-fuelgauge"; /* Fuelgauge voltage source */
+		battery,batt_data_version = <1>;
+
+		battery,chip_vendor = "QCOM";
+	
+		io-channels = <&pm6150_vadc ADC_AMUX_THM4_PU2>;
+	};
+
+	s2mu106-charger {
+		status = "disable";
+		compatible = "samsung,s2mu106-charger";
+	};
+
+	sec-direct-charger {
+			charger,main_charger = "s2mu106-charger";
+			charger,direct_charger = "pca9468-charger";
+	};
+
+	12c@13 {
+		pca9468@57 {
+			compatible = "nxp,pca9468";
+			reg = <0x57>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&dc_irq_default>;
+
+			pca9468,irq-gpio = <&tlmm 57 GPIO_ACTIVE_LOW>; /* DC_IRQ_N */
+			pca9468,input-current-limit = <2570000>; /* 2.57A */
+			pca9468,charging-current = <6000000>; /* 6A */
+			pca9468,input-itopoff = <500000>; /* 500mA */
+			pca9468,sense-resistance = <0>; /* 5mOhm */
+			pca9468,switching-frequency = <3>; /* 980KHz */
+			pca9468,ntc-threshold = <0>; /* disable */
+			pca9468,chg_gpio_en = <&tlmm 55 GPIO_ACTIVE_HIGH>; /* DC_CPEN */
+			pca9468,ta-mode = <1>; /* 2:1 charging mode */
+		};
+
+		flash_led {
+			reg = <0x74>;
+			compatible = "qcom,s2mu106-fled";
+			enable = <1 1>;
+			flash-gpio = <&tlmm 22 0>;
+			torch-gpio = <&tlmm 24 0>;
+			pinctrl-names = "fled_default", "fled_suspend";
+			pinctrl-0 = <&cam_flash_active &cam_torch_active>;
+			pinctrl-1 = <&cam_flash_suspend &cam_torch_suspend>;
+			factory_current = <300>;
+			flashlight_current = <25 75 100 150 200>;
+			status = "okay";
+		};
+	};
+
+	i2c_14: 12c@14 {
+		status  = "ok";
+
+		cell-index = <14>;
+		compatible = "i2c-gpio";
+		gpios = <&tlmm 101 0 /*sda*/
+			&tlmm 102 0 /*scl*/
+			>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&s2mu106_fg_active>;
+
+		s2mu106-fuelgauge@3B{
+			compatible = "samsung,s2mu106-fuelgauge";
+			reg = <0x3B>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&fuel_irq>;
+			fuelgauge,fuel_int = <&tlmm 104 0>;
+			fuelgauge,charger_name = "s2mu106-charger";
+			fuelgauge,fuel_alert_soc = <1>;
+			fuelgauge,fuel_alert_vol = <3300>;
+			fuelgauge,low_temp_limit = <100>;
+			fuelgauge,capacity_max = <990>;
+			fuelgauge,capacity_max_margin = <200>;
+			fuelgauge,capacity_min = <0>;
+			fuelgauge,capacity_calculation_type = <28>;
+			fuelgauge,capacity_full = <3000>;
+			fuelgauge,type_str = "SDI";
+			fuelgauge,fg_log_enable = <1>;
+			
+			fuelgauge,low_voltage_limit = <3450>;
+			fuelgauge,low_voltage_limit_lowtemp = <3000>;
+		};
+	};
+};
+
+&tlmm {
+    /* r06 */
+	/* s2mu106_fg i2c */
+	s2mu106_fg_i2c: s2mu106_fg_i2c {
+		s2mu106_fg_active: s2mu106_fg_active {
+			mux {
+				pins = "gpio102", "gpio101";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio102", "gpio101";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
+	dc_irq_default: dc_irq_default {
+		config {
+			pins = "gpio57";
+			drive-strength = <2>;
+			bias-disable;
+			input-enable;
+		};
+	};
+};

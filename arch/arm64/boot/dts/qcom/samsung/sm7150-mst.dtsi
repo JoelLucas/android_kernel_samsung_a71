@@ -1,0 +1,40 @@
+&soc {
+	sec-mst {
+		compatible = "sec-mst";
+		sec-mst,mst-pwr-gpio = <&tlmm 5 0>;
+		sec-mst,mst-data-gpio = <&tlmm 83 0>;
+		sec-mst,mst-en-gpio = <&tlmm 84 0>;
+		sec-mst,mst-support-gpio = <&pm6150l_gpios 4 0>;
+
+		//pinctrl-names = "mst_active";
+		//pinctrl-0 = <&mst_data_init &mst_en_init>;
+	};
+/*
+	tlmm: pinctrl@03000000 {
+		mst_data_init: mst_data_init {
+			mux {
+				pins = "gpio84";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio84";
+				drive-strength = <16>;
+				bias-pull-down;
+				output_low;
+			};
+		};
+		mst_en_init: mst_en_init {
+			mux {
+				pins = "gpio83";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio83";
+				drive-strength = <16>;
+				bias-pull-down;
+				output_low;
+			};
+		};
+	};
+*/
+};

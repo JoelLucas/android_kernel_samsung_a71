@@ -1,0 +1,21 @@
+/* r00 */
+&i2c_13 {
+	s2mu107@3A {
+		status = "okay";
+		compatible = "samsung,s2mu107mfd";
+		reg = <0x3A>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&if_pmic_irq>;
+		s2mu107,irq-gpio = <&tlmm 68 0>;
+		s2mu107,wakeup;
+	};
+		
+	usbpd-s2mu107@3C {
+		status = "okay";
+		compatible = "s2mu107-usbpd";
+		reg = <0x3C>;
+		pinctrl-names = "default";
+		pinctrl-0     = <&usbpd_irq>;
+		usbpd,usbpd_int = <&tlmm 32 0>;
+	};
+};

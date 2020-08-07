@@ -123,6 +123,8 @@ dtb-$(CONFIG_ARCH_SDMSHRIKE)	+= sdmshrike-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+ifeq ($(CONFIG_MACH_SAMSUNG_A71),y)
+else
 	dtbo-$(CONFIG_ARCH_SM6150) += \
 		sm6150-rumi-overlay.dtbo \
 		sm6150-qrd-overlay.dtbo \
@@ -159,6 +161,7 @@ sa6155p-adp-air-overlay.dtbo-base := sa6155p.dtb
 sa6155p-v2-adp-air-overlay.dtbo-base := sa6155p.dtb
 qcs610-iot-overlay.dtbo-base := sm6150.dtb
 qcs410-iot-overlay.dtbo-base := sm6150.dtb
+endif
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sm6150-qrd.dtb \
@@ -181,6 +184,12 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+ifeq ($(CONFIG_MACH_SAMSUNG_A71),y)
+	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
+	sdmmagpie-idp-overlay-a71n.dtbo
+
+sdmmagpie-idp-overlay-a71n.dtbo-base := sdmmagpie.dtb
+else
 	dtbo-$(CONFIG_ARCH_SDMMAGPIE) += \
 		sdmmagpie-idp-overlay.dtbo \
 		sdmmagpie-atp-overlay.dtbo \
@@ -203,6 +212,7 @@ sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpie-external-codec-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-usbc-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-dual-display-idp-overlay.dtbo-base := sdmmagpie.dtb
+endif
 else
 dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpie-idp.dtb \
