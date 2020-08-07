@@ -24,6 +24,9 @@ Copyright (C) 2015, Samsung Electronics. All rights reserved.
 
 #include "ss_dsi_panel_sysfs.h"
 
+/* FOD-HBM dimming */
+#include <linux/fod_status.h>
+
 extern struct kset *devices_kset;
 
 #define MAX_FILE_NAME 128
@@ -3897,6 +3900,19 @@ static ssize_t ss_stm_store(struct device *dev,
 	return size;
 }
 
+/* FOD-HBM dimming */
+int fod_dimming_enabled = 0;
+static ssize_t ss_fod_dimming_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	if (sscanf(buf, "%d", &fod_dimming_enabled) != 1)
+		return size;
+
+	LCD_INFO("fod dimming is %s\n", fod_dimming_enabled ? "enabled" : "disabled");
+
+	return size;
+}
+
 /* SAMSUNG_FINGERPRINT */
 static ssize_t ss_finger_hbm_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -4097,6 +4113,8 @@ static DEVICE_ATTR(reading_mode, S_IRUGO | S_IWUSR | S_IWGRP, ss_reading_mode_sh
 static DEVICE_ATTR(fp_green_circle, S_IRUGO | S_IWUSR | S_IWGRP, NULL, ss_fp_green_circle_store);
 static DEVICE_ATTR(conn_det, S_IRUGO | S_IWUSR | S_IWGRP, ss_ub_con_det_show, ss_ub_con_det_store);
 
+/* FOD-HBM dimming */
+static DEVICE_ATTR(fod_dimming, S_IRUGO | S_IWUSR | S_IWGRP, NULL, ss_fod_dimming_store);
 
 static struct attribute *panel_sysfs_attributes[] = {
 	&dev_attr_lcd_type.attr,
@@ -4163,6 +4181,7 @@ static struct attribute *panel_sysfs_attributes[] = {
 	&dev_attr_mask_brightness.attr,
 	&dev_attr_actual_mask_brightness.attr,
 	&dev_attr_conn_det.attr,
+	&dev_attr_fod_dimming.attr,
 	&dev_attr_reading_mode.attr,
 	&dev_attr_fp_green_circle.attr,
 	NULL
