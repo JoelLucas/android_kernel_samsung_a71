@@ -22,6 +22,10 @@ struct qg_batt_props {
 	int			vbatt_full_mv;
 	int			fastchg_curr_ma;
 	int			qg_profile_version;
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+	int			fih_profile_version;
+	bool		qg_batt_aging_enable;
+#endif
 };
 
 struct qg_irq_info {
@@ -64,6 +68,7 @@ struct qg_dt {
 	int			min_sleep_time_secs;
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
+	int			tcss_entry_soc;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -75,6 +80,11 @@ struct qg_dt {
 	bool			qg_sleep_config;
 	bool			qg_fast_chg_cfg;
 	bool			fvss_enable;
+	bool			multi_profile_load;
+	bool			tcss_enable;
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+	bool			fake_temp;	
+#endif
 };
 
 struct qg_esr_data {
@@ -85,16 +95,26 @@ struct qg_esr_data {
 	u32			esr;
 	bool			valid;
 };
-
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+/* QC aging battery patch, but build error because redefine.(step-chg-jeita.h)
+struct range_data {
+	u32 low_threshold;
+	u32 high_threshold;
+	u32 value;
+};
+*/
+#endif
 struct qpnp_qg {
 	struct device		*dev;
 	struct pmic_revid_data	*pmic_rev_id;
 	struct regmap		*regmap;
 	struct qpnp_vadc_chip	*vadc_dev;
+	struct soh_profile	*sp;
 	struct power_supply	*qg_psy;
 	struct class		*qg_class;
 	struct device		*qg_device;
 	struct cdev		qg_cdev;
+	struct device_node	*batt_node;
 	dev_t			dev_no;
 	struct work_struct	udata_work;
 	struct work_struct	scale_soc_work;
@@ -121,6 +141,11 @@ struct qpnp_qg {
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+	struct range_data	vfloat_data[MAX_VFLOAT_ENTRIES];
+	struct range_data	vbat_rechg_data[MAX_VFLOAT_ENTRIES];
+	struct range_data	full_condition_soc_data[MAX_VFLOAT_ENTRIES];
+#endif
 
 	/* status variable */
 	u32			*debug_mask;
@@ -137,6 +162,14 @@ struct qpnp_qg {
 	bool			charge_full;
 	bool			force_soc;
 	bool			fvss_active;
+	bool			tcss_active;
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+#if defined(CONFIG_ENG_BATTERY_CONCEPT)
+	int			batt_test_batt_temp;
+#endif
+	int			batt_cycle;
+	int			full_condition_soc;
+#endif
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -147,6 +180,11 @@ struct qpnp_qg {
 	int			soc_reporting_ready;
 	int			last_fifo_v_uv;
 	int			last_fifo_i_ua;
+	int			prev_fifo_i_ua;
+	int			soc_tcss_entry;
+	int			ibat_tcss_entry;
+	int			soc_tcss;
+	int			tcss_entry_count;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
@@ -175,6 +213,14 @@ struct qpnp_qg {
 	int			sys_soc;
 	int			last_adj_ssoc;
 	int			recharge_soc;
+	int			batt_age_level;
+#if defined(CONFIG_BATTERY_SAMSUNG_USING_QC)
+	int 			ss_rescale_soc;
+	int 			charging_test_mode;
+#if defined(CONFIG_SEC_FACTORY)
+	int			is_smd;
+#endif
+#endif
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 

@@ -371,7 +371,6 @@
 		pinctrl-1 = <&sde_te_suspend>;
 
 		qcom,platform-te-gpio = <&tlmm 10 0>;
-		qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 		qcom,panel-te-source = <0>;
 
 		vddio-supply = <&pm6150_l13>;
@@ -788,6 +787,7 @@
 			qcom,mdss-dsi-panel-phy-timings = [00 20 08 08 24 23 08
 				08 05 02 04 00];
 			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
 		};
 	};
 };

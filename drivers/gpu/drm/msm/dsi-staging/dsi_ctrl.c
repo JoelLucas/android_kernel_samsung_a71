@@ -33,6 +33,11 @@
 
 #include "sde_dbg.h"
 
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+#include "ss_dsi_panel_common.h"
+#include "sde_trace.h"
+#endif
+
 #define DSI_CTRL_DEFAULT_LABEL "MDSS DSI CTRL"
 
 #define DSI_CTRL_TX_TO_MS     200
@@ -118,7 +123,7 @@ static ssize_t debugfs_state_info_read(struct file *file,
 			dsi_ctrl->clk_freq.pix_clk_rate,
 			dsi_ctrl->clk_freq.esc_clk_rate);
 
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -173,8 +178,7 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 		return rc;
 	}
 
-
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -831,10 +835,11 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	u32 bpp;
 	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
-	    byte_clk_rate;
+				byte_clk_rate, byte_intf_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
 	struct dsi_split_link_config *split_link = &host_cfg->split_link;
 	struct dsi_mode_info *timing = &config->video_timing;
+	u32 bits_per_symbol = 16, num_of_symbols = 7; /* For Cphy */
 
 	/* Get bits per pxl in desitnation format */
 	bpp = dsi_ctrl_pixel_format_to_bpp(host_cfg->dst_format);
@@ -866,23 +871,43 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		bit_rate = h_period * v_period * refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
+		if (host_cfg->phy_type == DSI_PHY_TYPE_CPHY) {
+			bit_rate *= bits_per_symbol;
+			do_div(bit_rate, num_of_symbols);
+		}
 	}
 
-	bit_rate_per_lane = bit_rate;
-	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;
 	do_div(pclk_rate, bpp);
-	byte_clk_rate = bit_rate_per_lane;
-	do_div(byte_clk_rate, 8);
+	if (host_cfg->phy_type == DSI_PHY_TYPE_DPHY) {
+		bit_rate_per_lane = bit_rate;
+		do_div(bit_rate_per_lane, num_of_lanes);
+		byte_clk_rate = bit_rate_per_lane;
+		do_div(byte_clk_rate, 8);
+		byte_intf_clk_rate = byte_clk_rate;
+		do_div(byte_intf_clk_rate, 2);
+		config->bit_clk_rate_hz = byte_clk_rate * 8;
+	} else {
+		do_div(bit_rate, bits_per_symbol);
+		bit_rate *= num_of_symbols;
+		bit_rate_per_lane = bit_rate;
+		do_div(bit_rate_per_lane, num_of_lanes);
+		byte_clk_rate = bit_rate_per_lane;
+		do_div(byte_clk_rate, 7);
+		/* For CPHY, byte_intf_clk is same as byte_clk */
+		byte_intf_clk_rate = byte_clk_rate;
+		config->bit_clk_rate_hz = byte_clk_rate * 7;
+	}
 	pr_debug("bit_clk_rate = %llu, bit_clk_rate_per_lane = %llu\n",
 		 bit_rate, bit_rate_per_lane);
-	pr_debug("byte_clk_rate = %llu, pclk_rate = %llu\n",
-		  byte_clk_rate, pclk_rate);
+	pr_debug("byte_clk_rate = %llu, byte_intf_clk_rate = %llu\n",
+		  byte_clk_rate, byte_intf_clk_rate);
+	pr_debug("pclk_rate = %llu\n", pclk_rate);
 
 	dsi_ctrl->clk_freq.byte_clk_rate = byte_clk_rate;
+	dsi_ctrl->clk_freq.byte_intf_clk_rate = byte_intf_clk_rate;
 	dsi_ctrl->clk_freq.pix_clk_rate = pclk_rate;
 	dsi_ctrl->clk_freq.esc_clk_rate = config->esc_clk_rate_hz;
-	config->bit_clk_rate_hz = dsi_ctrl->clk_freq.byte_clk_rate * 8;
 
 	rc = dsi_clk_set_link_frequencies(clk_handle, dsi_ctrl->clk_freq,
 					dsi_ctrl->cell_index);
@@ -1110,6 +1135,37 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+static void print_cmd_desc(const struct mipi_dsi_msg *msg)
+{
+	char buf[1024];
+	int len = 0;
+	size_t i;
+
+	/* Packet Info */
+	len += snprintf(buf, sizeof(buf) - len,  "%02x ", msg->type);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+		(msg->flags & MIPI_DSI_MSG_LASTCOMMAND) ? 1 : 0); /* Last bit */
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ", msg->channel);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						(unsigned int)msg->flags);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ", 0); /* Delay */
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						(unsigned int)msg->tx_len);
+
+	/* Packet Payload */
+	for (i = 0 ; i < msg->tx_len ; i++) {
+		len += snprintf(buf + len, sizeof(buf) - len,
+						"%02x ", msg->tx_buf[i]);
+		/* Break to prevent show too long command */
+		if (i > 250)
+			break;
+	}
+
+	LCD_INFO("(%02d) %s\n", (unsigned int)msg->tx_len, buf);
+}
+#endif
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
@@ -1125,6 +1181,12 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u8 *cmdbuf;
 	struct dsi_mode_info *timing;
 	struct dsi_ctrl_hw_ops dsi_hw_ops = dsi_ctrl->hw.ops;
+
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+	struct samsung_display_driver_data *vdd = ss_get_vdd(dsi_ctrl->cell_index);
+	if (vdd->debug_data->print_cmds)
+		print_cmd_desc(msg);
+#endif
 
 	/* Select the tx mode to transfer the command */
 	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, &flags);
@@ -1270,10 +1332,19 @@ kickoff:
 							&cmd_mem,
 							hw_flags);
 			} else {
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+				if (msg->tx_buf[0] == 0x2a || msg->tx_buf[0] == 0x2b)
+					SDE_ATRACE_BEGIN("dsi_message_tx_flush");
+#endif
 				dsi_hw_ops.kickoff_command(
 						&dsi_ctrl->hw,
 						&cmd_mem,
 						hw_flags);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+				if (msg->tx_buf[0] == 0x2a || msg->tx_buf[0] == 0x2b)
+					SDE_ATRACE_END("dsi_message_tx_flush");
+#endif
 			}
 		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 			dsi_hw_ops.kickoff_fifo_command(&dsi_ctrl->hw,
@@ -1281,9 +1352,18 @@ kickoff:
 							      hw_flags);
 		}
 
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+		if (msg->tx_buf[0] == 0x2a || msg->tx_buf[0] == 0x2b)
+			SDE_ATRACE_BEGIN("dsi_message_tx_wait");
+#endif
 		ret = wait_for_completion_timeout(
 				&dsi_ctrl->irq_info.cmd_dma_done,
 				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+		if (msg->tx_buf[0] == 0x2a || msg->tx_buf[0] == 0x2b)
+			SDE_ATRACE_END("dsi_message_tx_wait");
+#endif
 
 		if (ret == 0) {
 			u32 status = dsi_hw_ops.get_interrupt_status(
@@ -1306,6 +1386,20 @@ kickoff:
 						DSI_SINT_CMD_MODE_DMA_DONE);
 				pr_err("[DSI_%d]Command transfer failed\n",
 						dsi_ctrl->cell_index);
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+				/* check physical display connection */
+				if (gpio_is_valid(vdd->ub_con_det.gpio)) {
+					pr_err("[SDE] ub_con_det.gpio(%d) level=%d\n",
+							vdd->ub_con_det.gpio,
+							gpio_get_value(vdd->ub_con_det.gpio));
+				}
+#endif
+
+#if 1 // case 03745287
+				if (!dsi_ctrl->esd_check_underway) {
+					SDE_DBG_DUMP("all", "dbg_bus","dsi_dbg_bus", "vbif_dbg_bus", "panic");
+				}
+#endif
 			}
 		}
 
@@ -2382,6 +2476,9 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 
 	/* DSI FIFO UNDERFLOW error */
 	if (error & 0xF00000) {
+		pr_err("dsi FIFO UNDERFLOW error: 0x%lx\n", error);
+		SDE_DBG_DUMP_WQ("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+			"vbif", "dbg_bus","dsi_dbg_bus", "vbif_dbg_bus", "panic");
 		if (cb_info.event_cb) {
 			cb_info.event_idx = DSI_FIFO_UNDERFLOW;
 			(void)cb_info.event_cb(cb_info.event_usr_ptr,
@@ -2416,6 +2513,12 @@ static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 	/* enable back DSI interrupts */
 	if (dsi_ctrl->hw.ops.error_intr_ctrl)
 		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, true);
+
+
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+	//inc_dpui_u32_field_nolock(DPUI_KEY_QCT_DSIE, 1);
+	ss_get_vdd(dsi_ctrl->cell_index)->dsi_errors = error;
+#endif
 }
 
 /**
