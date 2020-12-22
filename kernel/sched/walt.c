@@ -31,6 +31,8 @@
 
 #include <trace/events/sched.h>
 
+#include <linux/sec_debug.h>
+
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
 				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE",
 				"IRQ_UPDATE"};
@@ -921,6 +923,9 @@ void set_window_start(struct rq *rq)
 
 unsigned int max_possible_efficiency = 1;
 unsigned int min_possible_efficiency = UINT_MAX;
+
+unsigned int sysctl_sched_conservative_pl;
+unsigned int sysctl_sched_many_wakeup_threshold = 1000;
 
 #define INC_STEP 8
 #define DEC_STEP 2
@@ -2107,6 +2112,17 @@ struct sched_cluster *sched_cluster[NR_CPUS];
 int num_clusters;
 
 struct list_head cluster_head;
+
+#ifdef CONFIG_SEC_DEBUG_SUMMARY
+void summary_set_lpm_info_cluster(struct sec_debug_summary_data_apss *apss)
+{
+	apss->aplpm.num_clusters = num_clusters;
+	pr_info("%s : 0x%llx\n", __func__, virt_to_phys((void *)sched_cluster));
+	pr_info("%s : offset 0x%lx\n", __func__, offsetof(struct sched_cluster, dstate));
+	apss->aplpm.p_cluster = virt_to_phys((void *)sched_cluster);
+	apss->aplpm.dstate_offset = offsetof(struct sched_cluster, dstate);
+}
+#endif
 
 static void
 insert_cluster(struct sched_cluster *cluster, struct list_head *head)

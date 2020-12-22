@@ -7,6 +7,9 @@ ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 ccflags-y += -Idrivers/gpu/drm/msm/hdmi
 ccflags-$(CONFIG_DRM_SDE_SHD) += -Idrivers/gpu/drm/msm/shd
+ccflags-$(CONFIG_DRM_SDE_SHP) += -Idrivers/gpu/drm/msm/shp
+
+ccflags-$(CONFIG_DISPLAY_SAMSUNG) += -Idrivers/gpu/drm/msm/samsung
 
 msm_drm-y := \
 	dp/dp_usbpd.o \
@@ -193,6 +196,8 @@ msm_drm-$(CONFIG_DRM_SDE_SHD) += shd/shd_drm.o \
 	shd/shd_hw.o \
 	shd/sde_encoder_phys_shd.o
 
+msm_drm-$(CONFIG_DRM_SDE_SHP) += shp/shp_drm.o
+
 msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_atomic.o \
 	msm_drv.o \
@@ -213,3 +218,7 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_debugfs.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o
+
+ifeq ($(CONFIG_DISPLAY_SAMSUNG),y)
+obj-y += samsung/
+endif

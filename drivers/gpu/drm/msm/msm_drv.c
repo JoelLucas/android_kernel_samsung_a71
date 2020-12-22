@@ -60,6 +60,16 @@
 #define MSM_VERSION_MINOR	2
 #define MSM_VERSION_PATCHLEVEL	0
 
+#if defined(CONFIG_DISPLAY_SAMSUNG)
+#if 0
+int __msm_drm_notifier_call_chain(unsigned long event, void *data)
+{
+	return blocking_notifier_call_chain(&msm_drm_notifier_list,
+					event, data);
+}
+#endif
+#endif
+
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
 	struct msm_drm_private *priv = NULL;
@@ -1381,24 +1391,26 @@ static int msm_ioctl_register_event(struct drm_device *dev, void *data,
 	 * calls add to client list and return.
 	 */
 	count = msm_event_client_count(dev, req_event, false);
-	/* Add current client to list */
-	spin_lock_irqsave(&dev->event_lock, flag);
-	list_add_tail(&client->base.link, &priv->client_event_list);
-	spin_unlock_irqrestore(&dev->event_lock, flag);
-
-	if (count)
-		return 0;
-
-	ret = msm_register_event(dev, req_event, file, true);
-	if (ret) {
-		DRM_ERROR("failed to enable event %x object %x object id %d\n",
-			req_event->event, req_event->object_type,
-			req_event->object_id);
+	if (count) {
+		/* Add current client to list */
 		spin_lock_irqsave(&dev->event_lock, flag);
-		list_del(&client->base.link);
+		list_add_tail(&client->base.link, &priv->client_event_list);
 		spin_unlock_irqrestore(&dev->event_lock, flag);
-		kfree(client);
+ 		return 0;
 	}
+ 
+ 	ret = msm_register_event(dev, req_event, file, true);
+ 	if (ret) {
+ 		DRM_ERROR("failed to enable event %x object %x object id %d\n",
+ 			req_event->event, req_event->object_type,
+			req_event->object_id);
+		kfree(client);
+	} else {
+		/* Add current client to list */
+ 		spin_lock_irqsave(&dev->event_lock, flag);
+		list_add_tail(&client->base.link, &priv->client_event_list);
+ 		spin_unlock_irqrestore(&dev->event_lock, flag);
+ 	}
 	return ret;
 }
 
@@ -1911,6 +1923,12 @@ static int add_display_components(struct device *dev,
 			if (!node)
 				break;
 
+#ifndef CONFIG_SEC_DISPLAYPORT
+			if (!strncmp(node->name, "qcom,dp_display", 15)) {
+				pr_info("[drm-dp] disabled displayport!\n");
+				continue;
+			}
+#endif
 			component_match_add(dev, matchptr, compare_of, node);
 		}
 

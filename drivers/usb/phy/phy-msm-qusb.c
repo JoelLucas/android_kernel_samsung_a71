@@ -27,6 +27,17 @@
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
 
+#define QUSB2PHY_PLL_PWR_CTL		0x18
+#define REF_BUF_EN			BIT(0)
+#define REXT_EN				BIT(1)
+#define PLL_BYPASSNL			BIT(2)
+#define REXT_TRIM_0			BIT(4)
+
+#define QUSB2PHY_PLL_AUTOPGM_CTL1	0x1C
+#define PLL_RESET_N_CNT_5		0x5
+#define PLL_RESET_N			BIT(4)
+#define PLL_AUTOPGM_EN			BIT(7)
+
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
 
@@ -55,6 +66,7 @@
 #define CORE_READY_STATUS		BIT(0)
 
 #define QUSB2PHY_PORT_UTMI_CTRL1	0xC0
+#define SUSPEND_N			BIT(5)
 #define TERM_SELECT			BIT(4)
 #define XCVR_SELECT_FS			BIT(2)
 #define OP_MODE_NON_DRIVE		BIT(0)
@@ -145,11 +157,20 @@ struct qusb_phy {
 	int			vdd_levels[3]; /* none, low, high */
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	int			host_init_seq_len;
+	int			*qusb_phy_host_init_seq;
+#endif
 	u32			major_rev;
 	u32			usb_hs_ac_bitmask;
 	u32			usb_hs_ac_value;
 
 	u32			tune2_val;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	u32			tune2_efuse_val;
+	int			tune2_sync_val;
+	int			tune2_sync_host_val;
+#endif
 	int			tune2_efuse_bit_pos;
 	int			tune2_efuse_num_of_bits;
 	int			tune2_efuse_correction;
@@ -175,6 +196,186 @@ struct qusb_phy {
 	bool			put_into_high_z_state;
 	struct mutex		phy_lock;
 };
+
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+static ssize_t qphy_show_tune1(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "0x%x\n", tune1);
+}
+static ssize_t qphy_store_tune1(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+	sscanf(buf, "%x", &tune1);
+	if (tune1)
+		writel_relaxed(tune1, qphy->base + QUSB2PHY_PORT_TUNE1);
+
+	pr_info("%s():set tune1 by adb :0x%x\n",	__func__, 
+		(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE1) & 0xff));
+
+	return size;
+}
+static DEVICE_ATTR(tune1, 0664,
+	qphy_show_tune1, qphy_store_tune1);
+
+static ssize_t qphy_show_tune2(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "0x%x\n", tune2);
+}
+static ssize_t qphy_store_tune2(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+	sscanf(buf, "%x", &tune2);
+	if (tune2)
+		writel_relaxed(tune2, qphy->base + QUSB2PHY_PORT_TUNE2);
+
+	pr_info("%s():set tune2 by adb :0x%x\n",	__func__, 
+		(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE2) & 0xff));
+
+	return size;
+}
+static DEVICE_ATTR(tune2, 0664,
+	qphy_show_tune2, qphy_store_tune2);
+
+static ssize_t qphy_show_tune3(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "0x%x\n", tune3);
+}
+static ssize_t qphy_store_tune3(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+	sscanf(buf, "%x", &tune3);
+	if (tune3)
+		writel_relaxed(tune3, qphy->base + QUSB2PHY_PORT_TUNE3);
+
+	pr_info("%s():set tune3 by adb :0x%x\n",	__func__, 
+		(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE3) & 0xff));
+
+	return size;
+}
+static DEVICE_ATTR(tune3, 0664,
+	qphy_show_tune3, qphy_store_tune3);
+
+static ssize_t qphy_show_tune4(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "0x%x\n", tune4);
+}
+static ssize_t qphy_store_tune4(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+	sscanf(buf, "%x", &tune4);
+	if (tune4)
+		writel_relaxed(tune4, qphy->base + QUSB2PHY_PORT_TUNE4);
+
+	pr_info("%s():set tune4 by adb :0x%x\n",	__func__, 
+		(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE4) & 0xff));
+
+	return size;
+}
+static DEVICE_ATTR(tune4, 0664,
+	qphy_show_tune4, qphy_store_tune4);
+
+static ssize_t qphy_show_tune5(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+
+	return sprintf(buf, "0x%x\n", tune5);
+}
+static ssize_t qphy_store_tune5(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct qusb_phy *qphy = dev_get_drvdata(dev);
+
+	if (!qphy) {
+		pr_err("qphy is NULL\n");
+		return -ENODEV;
+	}
+	sscanf(buf, "%x", &tune5);
+	if (tune5)
+		writel_relaxed(tune5, qphy->base + QUSB2PHY_PORT_TUNE5);
+
+	pr_info("%s():set tune5 by adb :0x%x\n",	__func__, 
+		(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE5) & 0xff));
+
+	return size;
+}
+static DEVICE_ATTR(tune5, 0664,
+	qphy_show_tune5, qphy_store_tune5);
+
+static struct attribute *qusb_attrs[] = {
+	&dev_attr_tune1.attr,
+	&dev_attr_tune2.attr,
+	&dev_attr_tune3.attr,
+	&dev_attr_tune4.attr,
+	&dev_attr_tune5.attr,
+	NULL,
+};
+
+static struct attribute_group qusb_attr_grp = {
+	.attrs = qusb_attrs,
+};
+#endif
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 {
@@ -247,8 +448,10 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
 
+
 	dev_dbg(qphy->phy.dev, "%s turn %s regulators\n",
 			__func__, on ? "on" : "off");
+
 
 	if (!on)
 		goto disable_vdda33;
@@ -306,7 +509,7 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 		goto unset_vdd33;
 	}
 
-	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
+	pr_info("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 	return ret;
 
 disable_vdda33:
@@ -355,8 +558,42 @@ unconfig_vdd:
 err_vdd:
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
 
+	pr_info("%s(): QUSB PHY's regulators are turned OFF.\n", __func__);
 	return ret;
 }
+
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+static void qusb_phy_update_tune2(struct qusb_phy *qphy)
+{
+	int diff_tune2 = 0;
+	u8 reg_val;
+
+	if (qphy->phy.flags & PHY_HOST_MODE) {
+		pr_info("%s(): read tune2 diff for USB Host: %d, efuse: %x",
+			__func__, qphy->tune2_sync_host_val, qphy->tune2_efuse_val);
+		diff_tune2 = qphy->tune2_sync_host_val;
+	} else {
+		pr_info("%s(): read tune2 diff for USB Device: %d, efuse: %x",
+			__func__, qphy->tune2_sync_val, qphy->tune2_efuse_val);
+		diff_tune2 = qphy->tune2_sync_val;
+	}
+
+	diff_tune2 += qphy->tune2_efuse_val;
+
+	if (diff_tune2 <= 0)
+		diff_tune2 = 1;
+	else if (diff_tune2 > 0xf)
+		diff_tune2 = 0xf;
+
+	reg_val = readb_relaxed(qphy->base + QUSB2PHY_PORT_TUNE2);
+	if (qphy->tune2_val) {
+		reg_val  &= 0x0f;
+		reg_val |= (diff_tune2 << 4);
+	}
+
+	qphy->tune2_val = reg_val;
+}
+#endif
 
 static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 {
@@ -404,6 +641,11 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 						qphy->tune2_efuse_correction;
 	}
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	pr_info("%s(): QC efuse value : 0x%x\n", __func__, qphy->tune2_val);
+	qphy->tune2_efuse_val = qphy->tune2_val;
+#endif
+
 	reg_val = readb_relaxed(qphy->base + QUSB2PHY_PORT_TUNE2);
 	if (qphy->tune2_val) {
 		reg_val  &= 0x0f;
@@ -446,8 +688,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 				__func__);
 		return 0;
 	}
+	dev_info(phy->dev, "%s\n", __func__);
 
-	dev_dbg(phy->dev, "%s\n", __func__);
 
 	/*
 	 * ref clock is enabled by default after power on reset. Linux clock
@@ -516,6 +758,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 	if (qphy->ref_clk_base)
 		reset_val = readl_relaxed(qphy->base + QUSB2PHY_PLL_TEST);
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	if (qphy->qusb_phy_host_init_seq && qphy->phy.flags & PHY_HOST_MODE)
+		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
+				qphy->host_init_seq_len, 0);
+	else
+#endif
 	if (qphy->qusb_phy_init_seq)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
@@ -529,6 +777,9 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (!qphy->tune2_val)
 			qusb_phy_get_tune2_param(qphy);
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+		qusb_phy_update_tune2(qphy);
+#endif
 		pr_debug("%s(): Programming TUNE2 parameter as:%x\n", __func__,
 				qphy->tune2_val);
 		writel_relaxed(qphy->tune2_val,
@@ -561,6 +812,15 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	pr_info("%s():set modparams TUNEX val:0x%x 0x%x 0x%x 0x%x 0x%x\n",
+			__func__, 
+			(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE1) & 0xff),
+			(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE2) & 0xff),
+			(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE3) & 0xff),
+			(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE4) & 0xff),
+			(readl_relaxed(qphy->base + QUSB2PHY_PORT_TUNE5) & 0xff));
+#endif
 
 	/* Enable the PHY */
 	if (qphy->major_rev < 2)
@@ -778,6 +1038,86 @@ static int qusb_phy_notify_disconnect(struct usb_phy *phy,
 
 	dev_dbg(phy->dev, "QUSB PHY: connect notification cable_connected=%d\n",
 							qphy->cable_connected);
+	return 0;
+}
+
+static int qusb_phy_drive_dp_pulse(struct usb_phy *phy,
+						unsigned int pulse_width)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	int ret;
+
+	dev_dbg(qphy->phy.dev, "connected to a CDP, drive DP up\n");
+	ret = qusb_phy_enable_power(qphy, true);
+	if (ret < 0) {
+		dev_dbg(qphy->phy.dev,
+			"dpdm regulator enable failed:%d\n", ret);
+		return ret;
+	}
+	qusb_phy_gdsc(qphy, true);
+	qusb_phy_enable_clocks(qphy, true);
+
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "phyassert failed\n");
+	usleep_range(100, 150);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "deassert failed\n");
+
+	/* Configure PHY to enable control on DP/DM lines */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	writel_relaxed(TERM_SELECT | XCVR_SELECT_FS | OP_MODE_NON_DRIVE |
+			SUSPEND_N, qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+
+	writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
+				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	writel_relaxed(PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	writel_relaxed(REF_BUF_EN | REXT_EN | PLL_BYPASSNL | REXT_TRIM_0,
+			qphy->base + QUSB2PHY_PLL_PWR_CTL);
+
+	usleep_range(5, 10);
+
+	writel_relaxed(0x15, qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+	writel_relaxed(PLL_RESET_N | PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC1);
+	writel_relaxed(0x00, qphy->base + QUSB2PHY_PORT_QC2);
+
+	usleep_range(50, 60);
+	/* Enable Rdp_en to pull DP up to 3V */
+	writel_relaxed(RDP_UP_EN, qphy->base + QUSB2PHY_PORT_QC2);
+	msleep(pulse_width);
+
+	/* Put the PHY and DP back to normal state */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);  /* 23 */
+
+	writel_relaxed(PLL_AUTOPGM_EN | PLL_RESET_N | PLL_RESET_N_CNT_5,
+			qphy->base + QUSB2PHY_PLL_AUTOPGM_CTL1);
+
+	writel_relaxed(UTMI_ULPI_SEL, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	writel_relaxed(TERM_SELECT, qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+
+	qusb_phy_enable_clocks(qphy, false);
+	qusb_phy_gdsc(qphy, false);
+
+	ret = qusb_phy_enable_power(qphy, false);
+	if (ret < 0) {
+		dev_dbg(qphy->phy.dev,
+			"dpdm regulator disable failed:%d\n", ret);
+		return ret;
+	}
 	return 0;
 }
 
@@ -1186,6 +1526,52 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	size = 0;
+	of_get_property(dev->of_node, "qcom,qusb-phy-host-init-seq", &size);
+	if (size) {
+		qphy->qusb_phy_host_init_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (qphy->qusb_phy_host_init_seq) {
+			qphy->host_init_seq_len =
+				(size / sizeof(*qphy->qusb_phy_host_init_seq));
+			if (qphy->host_init_seq_len % 2) {
+				dev_err(dev, "invalid host_init_seq_len\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qusb-phy-host-init-seq",
+				qphy->qusb_phy_host_init_seq,
+				qphy->host_init_seq_len);
+		} else {
+			dev_err(dev, "error allocating memory for phy_host_init_seq\n");
+		}
+	}
+
+	size = 0;
+	of_get_property(dev->of_node, "qcom,diff_tune2_host", &size);
+	if (size) {
+		ret = of_property_read_u32(dev->of_node, "qcom,diff_tune2_host",
+					&qphy->tune2_sync_host_val);
+		if (ret)
+			qphy->tune2_sync_host_val = 0;
+	} else {
+		qphy->tune2_sync_host_val = 0;
+	}
+
+	size = 0;
+	of_get_property(dev->of_node, "qcom,diff_tune2_device", &size);
+	if (size) {
+		ret = of_property_read_u32(dev->of_node, "qcom,diff_tune2_device",
+					&qphy->tune2_sync_val);
+		if (ret)
+			qphy->tune2_sync_val = 0;
+	} else {
+		qphy->tune2_sync_val = 0;
+	}
+#endif
+
 	qphy->ulpi_mode = false;
 	ret = of_property_read_string(dev->of_node, "phy_type", &phy_type);
 
@@ -1240,6 +1626,10 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 	qphy->phy.notify_connect        = qusb_phy_notify_connect;
 	qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
+	qphy->phy.drive_dp_pulse	= qusb_phy_drive_dp_pulse;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	qphy->tune2_efuse_val		= 0;
+#endif
 
 	/*
 	 * On some platforms multiple QUSB PHYs are available. If QUSB PHY is
@@ -1276,6 +1666,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qphy->suspended = true;
+
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	ret = sysfs_create_group(&pdev->dev.kobj, &qusb_attr_grp);
+	if (ret) {
+		pr_err("%s: qusb sysfs fail, ret %d", __func__, ret);
+		return ret;
+	}
+#endif
 
 	return ret;
 }

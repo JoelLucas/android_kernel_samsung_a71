@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,11 +144,9 @@ struct cam_hw_stop_args {
  * struct cam_hw_mgr_dump_pf_data - page fault debug data
  *
  * packet:     pointer to packet
- * ctx_id:     context id
  */
 struct cam_hw_mgr_dump_pf_data {
 	void    *packet;
-	uint32_t ctx_id;
 };
 
 /**
@@ -211,6 +209,7 @@ struct cam_hw_stream_setttings {
  * @num_out_map_entries:   Number of out map entries
  * @priv:                  Private pointer
  * @request_id:            Request ID
+ * @reapply                True if reapplying after bubble
  *
  */
 struct cam_hw_config_args {
@@ -222,6 +221,7 @@ struct cam_hw_config_args {
 	void                           *priv;
 	uint64_t                        request_id;
 	bool                            init_packet;
+	bool                            reapply;
 };
 
 /**
@@ -260,16 +260,6 @@ struct cam_hw_dump_pf_args {
 	unsigned long                   iova;
 	uint32_t                        buf_info;
 	bool                           *mem_found;
-};
-
-/**
- * struct cam_hw_reset_args -hw reset arguments
- *
- * @ctxt_to_hw_map:        HW context from the acquire
- *
- */
-struct cam_hw_reset_args {
-	void                           *ctxt_to_hw_map;
 };
 
 /* enum cam_hw_mgr_command - Hardware manager command type */
@@ -323,7 +313,6 @@ struct cam_hw_cmd_args {
  * @hw_open:                   Function pointer for HW init
  * @hw_close:                  Function pointer for HW deinit
  * @hw_flush:                  Function pointer for HW flush
- * @hw_reset:                  Function pointer for HW reset
  *
  */
 struct cam_hw_mgr_intf {
@@ -344,7 +333,6 @@ struct cam_hw_mgr_intf {
 	int (*hw_open)(void *hw_priv, void *fw_download_args);
 	int (*hw_close)(void *hw_priv, void *hw_close_args);
 	int (*hw_flush)(void *hw_priv, void *hw_flush_args);
-	int (*hw_reset)(void *hw_priv, void *hw_reset_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */
