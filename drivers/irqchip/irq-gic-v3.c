@@ -45,6 +45,9 @@
 #include <linux/notifier.h>
 
 #include "irq-gic-common.h"
+#ifdef CONFIG_SEC_PM
+#include <linux/wakeup_reason.h>
+#endif
 
 struct redist_region {
 	void __iomem		*redist_base;
@@ -145,6 +148,43 @@ static u64 __maybe_unused gic_read_iar(void)
 		return gic_read_iar_common();
 }
 #endif
+
+/*
+ * gic_show_pending_irq - Shows the pending interrupts
+ * Note: Interrupts should be disabled on the cpu from which
+ * this is called to get accurate list of pending interrupts.
+ */
+void gic_show_pending_irqs(void)
+{
+	void __iomem *base;
+	u32 pending, enabled;
+	unsigned int j;
+
+	base = gic_data.dist_base;
+	for (j = 0; j * 32 < gic_data.irq_nr; j++) {
+		enabled = readl_relaxed(base +
+					GICD_ISENABLER + j * 4);
+		pending = readl_relaxed(base +
+					GICD_ISPENDR + j * 4);
+		pr_err("Pending and enabled irqs[%d] %x %x\n", j,
+				pending, enabled);
+	}
+}
+
+/*
+ * get_gic_highpri_irq - Returns next high priority interrupt on current CPU
+ */
+unsigned int get_gic_highpri_irq(void)
+{
+	unsigned long flags;
+	unsigned int val = 0;
+
+	local_irq_save(flags);
+	val = read_gicreg(ICC_HPPIR1_EL1);
+	local_irq_restore(flags);
+
+	return val;
+}
 
 static void gic_enable_redist(bool enable)
 {
@@ -412,6 +452,20 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 		enabled = readl_relaxed(base + GICD_ICENABLER + i * 4);
 		pending[i] = readl_relaxed(base + GICD_ISPENDR + i * 4);
 		pending[i] &= enabled;
+#ifdef CONFIG_SEC_PM
+		if (pending[i]) {
+			int j, irq;
+
+			for (j = 0; j < 32; j++) {
+				if (pending[i] & 0x01 << j) {
+					irq = irq_find_mapping(gic_data.domain, (i * 32) + 1);
+					log_wakeup_reason(irq);
+				}
+			}
+		}
+#else
+		pr_err("Pending irqs[%d] %x\n", j, pending[j]);
+#endif
 	}
 
 	for (i = find_first_bit((unsigned long *)pending, gic->irq_nr);

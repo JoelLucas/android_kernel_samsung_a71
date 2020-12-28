@@ -897,7 +897,16 @@ out:
 
 static int ufs_qcom_full_reset(struct ufs_hba *hba)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int ret = -ENOTSUPP;
+
+	host->hw_reset_count++;
+	host->last_hw_reset = (unsigned long)ktime_to_us(ktime_get());
+	host->hw_reset_saved_err = hba->saved_err;
+	host->hw_reset_saved_uic_err = hba->saved_uic_err;
+	host->hw_reset_outstanding_tasks = hba->outstanding_tasks;
+	host->hw_reset_outstanding_reqs = hba->outstanding_reqs;
+	memcpy(&host->hw_reset_ufs_stats, &hba->ufs_stats, sizeof(struct ufs_stats));
 
 	if (!hba->core_reset) {
 		dev_err(hba->dev, "%s: failed, err = %d\n", __func__,
@@ -1018,12 +1027,27 @@ static int ufs_qcom_crypto_engine_get_status(struct ufs_hba *hba, u32 *status)
 
 	return ufs_qcom_ice_get_status(host, status);
 }
+
+static int ufs_qcom_crypto_get_pending_req_status(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err = 0;
+
+	if (!host->ice.pdev)
+		goto out;
+
+	err = ufs_qcom_is_ice_busy(host);
+out:
+	return err;
+}
+
 #else /* !CONFIG_SCSI_UFS_QCOM_ICE */
 #define ufs_qcom_crypto_req_setup		NULL
 #define ufs_qcom_crytpo_engine_cfg_start	NULL
 #define ufs_qcom_crytpo_engine_cfg_end		NULL
 #define ufs_qcom_crytpo_engine_reset		NULL
 #define ufs_qcom_crypto_engine_get_status	NULL
+#define ufs_qcom_crypto_get_pending_req_status	NULL
 #endif /* CONFIG_SCSI_UFS_QCOM_ICE */
 
 struct ufs_qcom_dev_params {
@@ -2319,6 +2343,13 @@ out_variant_clear:
 	devm_kfree(dev, host);
 	ufshcd_set_variant(hba, NULL);
 out:
+	/*
+	 * host->hw_reset_count's default is -1
+	 * because full_reset is called 1 time on ufshcd_hba_probe()
+	 */
+	if (host)
+		host->hw_reset_count = -1;
+
 	return err;
 }
 
@@ -2807,6 +2838,7 @@ static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
 	.crypto_engine_cfg_end	= ufs_qcom_crytpo_engine_cfg_end,
 	.crypto_engine_reset	  = ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_get_status = ufs_qcom_crypto_engine_get_status,
+	.crypto_get_req_status = ufs_qcom_crypto_get_pending_req_status,
 };
 
 static struct ufs_hba_pm_qos_variant_ops ufs_hba_pm_qos_variant_ops = {
